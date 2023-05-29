@@ -9,30 +9,35 @@ const config = {
 
 const html404 = `<!DOCTYPE html>
 <html>
+<head>
+  <title>404 Not Found on shiny.im</title>
+</head>
 <body>
   <h1>404 Not Found.</h1>
-  <p>The url you visit is not found.</p>
+  <p>The url you visit is not found on <a href="https://shiny.im">shiny.im</a>.</p>
   <hr />
-  <p><a href="https://github.com/shinyzhu/Url-Shorten-Worker/" target="_self">Fork the source on GitHub</a></p>
 </body>
 </html>`
 
 const html_safe_browsing = `
 <!DOCTYPE html>
 <html>
+<head>
+  <title>Safe Browsing</title>
+</head>
 <body>
   <h1>Safe Browsing</h1>
   <p>The URL you visit is at risk:</p>
   <p><u>{Replace}</u></p>
   <p>We will not automatically redirect to this url.</p>
-  <hr />
-  </body>
+</body>
 </html>`
 
 const html_no_ref = `
 <!DOCTYPE html>
 <html>
 <head>
+  <title>Redirecting...</title>
   <meta http-equiv="Refresh" content="1; url={Replace}" />
 	<meta name="referrer" content="no-referrer" />
 </head>
@@ -152,14 +157,14 @@ async function handleRequest(request) {
     console.log(req["secret"])
 
     if (req["secret"] !== SECRET) {
-      return new Response(`{"status":400,"key":": Error: Missing secret."}`, {
+      return new Response(`{"status":400, "key":": Error: Missing secret."}`, {
         headers: response_header,
         status: 400
       })
     }
 
     if (!await checkURL(req["url"])) {
-      return new Response(`{"status":400,"key":": Error: Url illegal."}`, {
+      return new Response(`{"status":400, "key":": Error: Url illegal."}`, {
         headers: response_header,
         status: 400
       })
@@ -183,11 +188,11 @@ async function handleRequest(request) {
     
     console.log(stat)
     if (typeof (stat) == "undefined") {
-      return new Response(`{"status":200,"key":"/` + random_key + `"}`, {
+      return new Response(`{"status":200, "key":"` + random_key + `"}`, {
         headers: response_header,
       })
     } else {
-      return new Response(`{"status":200,"key":": Error:Reach the KV write limitation."}`, {
+      return new Response(`{"status":200, "key":": Error:Reach the KV write limitation."}`, {
         headers: response_header,
       })
     }
