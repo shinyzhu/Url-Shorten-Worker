@@ -1,20 +1,20 @@
 const config = {
-  no_ref: false, //Control the HTTP referrer header, if you want to create an anonymous link that will hide the HTTP Referer header, please set to "on" .
-  cors: true, //Allow Cross-origin resource sharing for API requests.
-  unique_link: true, //If it is true, the same long url will be shorten into the same short url
-  custom_link: true, //Allow users to customize the short url.
-  safe_browsing: false, //if true you need store your own Google Safe Browsing API Key to enable url safety check before redirect.
-  default_redirect: "https://shinyzhu.com" //Redirect to this URL when visiting the default root page.
+  no_ref: false, // Control the HTTP referrer header, if you want to create an anonymous link that will hide the HTTP Referer header, please set to true.
+  safe_browsing: false, // If true you need store your own Google Safe Browsing API Key to enable url safety check before redirect.
+  cors: true, // Allow Cross-origin resource sharing for API requests.
+  unique_link: true, // If it is true, the same long url will be shorten into the same short url.
+  custom_link: false, // TODO: Allow users to customize the short url.
 }
 
+// HTML Templates.
 const html404 = `<!DOCTYPE html>
 <html>
 <head>
-  <title>404 Not Found on shiny.im</title>
+  <title>404 Not Found</title>
 </head>
 <body>
   <h1>404 Not Found.</h1>
-  <p>The url you visit is not found on <a href="https://shiny.im">shiny.im</a>.</p>
+  <p>The url you visit is not found.</p>
   <hr />
 </body>
 </html>`
@@ -30,6 +30,7 @@ const html_safe_browsing = `
   <p>The URL you visit is at risk:</p>
   <p><u>{Replace}</u></p>
   <p>We will not automatically redirect to this url.</p>
+  <hr />
 </body>
 </html>`
 
@@ -44,6 +45,7 @@ const html_no_ref = `
 <body>
 	<p>Redirecting..</p>
   <p><a href="{Replace}">{Replace}</a></p>
+  <hr />
 	<script type="text/javascript">
 	/* <![CDATA[ */
 		setTimeout('window.location.replace( "{Replace}" + window.location.hash );', 1000 )
@@ -67,7 +69,7 @@ if (config.cors) {
 
 async function randomString(len) {
   len = len || 6;
-  let $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678';    /****默认去掉了容易混淆的字符oOLl,9gq,Vv,Uu,I1****/
+  let $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678';    /**** Removed oOLl,9gq,Vv,Uu,I1 ****/
   let maxPos = $chars.length;
   let result = '';
 
@@ -109,16 +111,16 @@ async function checkURL(URL) {
 
 async function save_url(URL) {
   let random_key = await randomString()
-  let is_exist = await LINKS.get(random_key)
+  let is_exist = await KV_LINKS.get(random_key)
   console.log(is_exist)
   if (is_exist == null)
-    return await LINKS.put(random_key, URL), random_key
+    return await KV_LINKS.put(random_key, URL), random_key
   else
     save_url(URL)
 }
 
 async function is_url_exist(url_sha512) {
-  let is_exist = await LINKS.get(url_sha512)
+  let is_exist = await KV_LINKS.get(url_sha512)
   console.log(is_exist)
   if (is_exist == null) {
     return false
@@ -136,8 +138,7 @@ async function is_url_safe(url) {
     redirect: 'follow'
   };
 
-  // G_SAFE_BROWSING_APIKEY is stored in the cf env.
-  result = await fetch("https://safebrowsing.googleapis.com/v4/threatMatches:find?key="+ G_SAFE_BROWSING_APIKEY, requestOptions)
+  result = await fetch("https://safebrowsing.googleapis.com/v4/threatMatches:find?key="+ ENV_SAFE_BROWSING_APIKEY, requestOptions)
   result = await result.json()
   console.log(result)
   if (Object.keys(result).length === 0) {
@@ -156,15 +157,15 @@ async function handleRequest(request) {
     console.log(req["url"])
     console.log(req["secret"])
 
-    if (req["secret"] !== SECRET) {
-      return new Response(`{"status":400, "key":": Error: Missing secret."}`, {
+    if (req["secret"] !== ENV_SECRET) {
+      return new Response(`{"status": 400, "error": "Missing secret."}`, {
         headers: response_header,
         status: 400
       })
     }
 
     if (!await checkURL(req["url"])) {
-      return new Response(`{"status":400, "key":": Error: Url illegal."}`, {
+      return new Response(`{"status": 400, "error": "URL illegal."}`, {
         headers: response_header,
         status: 400
       })
@@ -179,7 +180,7 @@ async function handleRequest(request) {
       } else {
         stat, random_key = await save_url(req["url"])
         if (typeof (stat) == "undefined") {
-          console.log(await LINKS.put(url_sha512, random_key))
+          console.log(await KV_LINKS.put(url_sha512, random_key))
         }
       }
     } else {
@@ -188,12 +189,13 @@ async function handleRequest(request) {
     
     console.log(stat)
     if (typeof (stat) == "undefined") {
-      return new Response(`{"status":200, "key":"` + random_key + `"}`, {
+      return new Response(`{"status": 200, "key": "` + random_key + `"}`, {
         headers: response_header,
       })
     } else {
-      return new Response(`{"status":200, "key":": Error:Reach the KV write limitation."}`, {
+      return new Response(`{"status": 500, "error": "Reached the KV write limitation."}`, {
         headers: response_header,
+        status: 500
       })
     }
   } else if (request.method === "OPTIONS") {
@@ -210,10 +212,10 @@ async function handleRequest(request) {
   console.log(path)
 
   if (!path) {
-    return Response.redirect(config.default_redirect, 301);
+    return Response.redirect(ENV_DEFAULT_REDIRECT, 301);
   }
 
-  const value = await LINKS.get(path);
+  const value = await KV_LINKS.get(path);
   let location;
 
   if (params) {
@@ -231,17 +233,18 @@ async function handleRequest(request) {
         warning_page = warning_page.replace(/{Replace}/gm, location)
         return new Response(warning_page, {
           headers: {
-            "content-type": "text/html;charset=UTF-8",
+            "Content-Type": "text/html;charset=UTF-8",
           },
         })
       }
     }
+
     if (config.no_ref) {
       let no_ref = html_no_ref
       no_ref = no_ref.replace(/{Replace}/gm, location)
       return new Response(no_ref, {
         headers: {
-          "content-type": "text/html;charset=UTF-8",
+          "Content-Type": "text/html;charset=UTF-8",
         },
       })
     } else {
@@ -249,10 +252,11 @@ async function handleRequest(request) {
     }
 
   }
-  // If request not in kv, return 404
+
+  // If the requested key is not found in the KV, return 404
   return new Response(html404, {
     headers: {
-      "content-type": "text/html;charset=UTF-8",
+      "Content-Type": "text/html;charset=UTF-8",
     },
     status: 404
   })
