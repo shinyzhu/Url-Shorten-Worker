@@ -1,38 +1,68 @@
-# Url-Shorten-Worker
-A URL Shortener created using Cloudflare Worker
+# URL-Shorten-Worker
+A URL Shortener created using Cloudflare Worker.
 
-# API
+This updated version only support API. **No web UI provided.**
 
-[API Documentation (API文档)](API.md)
+## API Documentation
 
-# Getting start
-### 去Workers KV中创建一个命名空间
+See [API Documentation](docs/API.md)
 
-Go to Workers KV and create a namespace.
+## Deploy your own shortener
 
-<img src="https://cdn.jsdelivr.net/npm/imst@0.0.4/20201205232805.png">
+You need to login to Cloudflare to get started.
 
-### 去Worker的Settings选选项卡中绑定KV Namespace
+### 1. Create a KV namespace
 
-Bind an instance of a KV Namespace to access its data in a Worker.
+To store shorten links, you need to first create a KV namespace. Let's say `links` for example.
 
-<img src="https://cdn.jsdelivr.net/npm/imst@0.0.4/20201205232536.png">
+![](docs/kv_create_namespace.png)
 
-### 其中Variable name填写`LINKS`, KV namespace填写你刚刚创建的命名空间
+### 2. Create a Worker application 
 
-Where Variable name should set as `LINKS` and KV namespace is the namespace you just created in the first step.
+The worker is the app that shorten your long URLs. You can create a "Hello World" Worker. We'll edit the script later.
 
-<img src="https://cdn.jsdelivr.net/npm/imst@0.0.4/20201205232704.png">
+### 3. Edit the Worker settings
 
-### 复制本项目中的`index.js`的代码到Cloudflare Worker 
+Open your Worker page. Switch to the `Settings` tab.
 
-Copy the `index.js` code from this project to Cloudflare Worker. 
+We need to set the Variables for shortner.
 
-### 点击Save and Deploy
+#### 3.1 Add variables
 
-Click Save and Deploy
+We need these variables:
 
-# Demo
+`ENV_DEFAULT_REDIRECT`: If someone directly visit your shortner page, then redirect to this URL.
+
+`ENV_SAFE_BROWSING_APIKEY`: If you enabled Google Safe Browsing, you need to set your own API KEY here.
+
+`ENV_SECRET`: The secret string for protecting your shortener API.
+
+![](docs/worker_env.jpg)
+
+#### 3.2 Bind KV namespace
+
+Scroll down in the `Settings` tab of the Worker page.
+
+Input the variable name `KV_LINKS`, and select your KV namespace in the dropdown list. Then click `Save and deploy`.
+
+![](docs/worker_kv_namespace_bindings.png)
+
+### 4. Edit the script of the Worker
+
+In the Worker page, click the `Quick edit` button to open the script editor.
+
+Copy all the code from file `index.js` and paste to the file `worker.js` in the editor.
+
+Then click the `Save and deploy` button. Or you can do some test in the editor.
+
+### 5. Ready to roll
+
+Now it's ready to work.
+
+You can edit the file `shortener.sh` to call the API from bash.
+
+## Web Demo by xyTom
+
 https://lnks.eu.org/
 
 Note: Because someone abuse this demo website, all the generated link will automatically expired after 24 hours. For long-term use, please deploy your own.
